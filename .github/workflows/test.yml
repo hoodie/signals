@@ -1,0 +1,37 @@
+name: Test Lint Fmt
+
+on:
+    pull_request:
+        branches:
+            - main
+
+jobs:
+    deno-ci:
+        runs-on: ubuntu-latest
+
+        steps:
+            # Checkout the code
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            # Set up Deno
+            - name: Set up Deno
+              uses: denoland/setup-deno@v2
+              with:
+                  deno-version: v2.x
+
+            # install
+            - name: Install deps
+              run: deno install
+
+            # Test the project
+            - name: Run tests
+              run: deno test
+
+            # Format check
+            - name: Check formatting
+              run: deno fmt --check
+
+            # Lint check
+            - name: Lint code
+              run: deno lint
