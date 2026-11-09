@@ -1,9 +1,9 @@
-import test from "../lib/test.ts";
+import test from '../lib/test.ts';
 
-import { ReadableSignal, Signal } from "../../src/index.ts";
-import { LeakDetectionSignal } from "../lib/leak-detection-signal.ts";
+import { ReadableSignal, Signal } from '../../src/index.ts';
+import { LeakDetectionSignal } from '../lib/leak-detection-signal.ts';
 
-import { parentChildSuite } from "./parent-child-suite.ts";
+import { parentChildSuite } from './parent-child-suite.ts';
 
 export type FilteredSignalCreationFunction = <T>(
     baseSignal: ReadableSignal<T>,
