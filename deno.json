@@ -3,6 +3,7 @@
     "version": "2.11.1",
     "license": "MIT",
     "exports": "./src/index.ts",
+    "description": "Friendly neighborhood signals",
 
     "compilerOptions": {
         "lib": ["deno.window"]
@@ -21,6 +22,7 @@
     },
     "tasks": {
         "check": "deno check src/index.ts",
+        "doc": "deno doc --no-npm src/index.ts",
         "test": "deno test --no-config --unstable-sloppy-imports test/*.spec.ts"
     },
     "fmt": {
