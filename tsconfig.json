@@ -8,6 +8,9 @@
         "lib": [
             "ESNext"
         ],
+        "types": [
+            "node"
+        ],
         "outDir": "lib",
         "moduleResolution": "nodenext",
         "allowImportingTsExtensions": true,

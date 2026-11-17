@@ -1,7 +1,13 @@
+/**
+ * Type contracts for signals, listeners, caches, and payload inference.
+ * @module
+ */
 import { CollectionCache, ValueCache } from './caches.ts';
 
+/** Callback invoked with a signal payload. */
 export type Listener<T> = (payload: T) => void;
 
+/** Basic listener registration supported by every signal. */
 export interface BaseSignal<T> {
     /**
      * Add a listener to the signal that will be called when the Signal is dispatched.
@@ -9,9 +15,11 @@ export interface BaseSignal<T> {
      * @param tags Object that can be used to unsubscribe the given listener.
      */
     add(listener: Listener<T>, ...tags: any[]): void;
+    /** Remove a listener or all listeners associated with a tag. */
     remove(listenerOrTag: any): void;
 }
 
+/** A signal that can be observed and transformed but not directly dispatched. */
 export interface ReadableSignal<T> extends BaseSignal<T> {
     /**
      * Add a listener to the `Signal` that will be called when the `Signal` is **dispatched ONLY ONCE**
@@ -101,6 +109,7 @@ export interface ReadableSignal<T> extends BaseSignal<T> {
     reduce<U>(accumulator: Accumulator<T, U>, initialValue: U): ReadableSignal<U>;
 }
 
+/** A readable signal whose cache replays previously dispatched payloads to listeners. */
 export interface CachedSignal<T, C extends Cache<unknown> = ValueCache<T>> extends BaseSignal<T> {
     /**
      * @internal this tag is not used anywhere,
@@ -193,7 +202,9 @@ export interface CachedSignal<T, C extends Cache<unknown> = ValueCache<T>> exten
     reduce<U>(accumulator: Accumulator<T, U>, initialValue: U): CachedSignal<U, C>;
 }
 
+/** A signal that can publish payloads and clear its listeners. */
 export interface WritableSignal<T> {
+    /** Dispatch a payload to registered listeners. */
     dispatch: (payload: T) => void;
     /**
      * set a listener to be called if no other listeners are available.
@@ -206,16 +217,23 @@ export interface WritableSignal<T> {
     clear(): void;
 }
 
+/** Storage interface accepted by a cached signal. */
 export interface Cache<T = unknown> {
+    /** Store a newly dispatched payload. */
     add(payload: T): void;
+    /** Visit stored payloads in replay order. */
     forEach(callback: (payload: T) => void): void;
+    /** Remove stored payloads if the cache supports clearing. */
     clear?(): void;
 }
 
+/** Combines the previous accumulated value with each new payload. */
 export type Accumulator<T, U> = (accumulator: U, current: T) => any;
 
+/** Extract the payload type accepted by a signal. */
 export type PayloadOf<S extends BaseSignal<any>> = S extends BaseSignal<infer T> ? T : never;
 
+/** Convert a signal type to its readable interface. */
 export type ReadOnlyVersionOf<S extends BaseSignal<any>> = S extends BaseSignal<infer T>
     ? ReadableSignal<T>
     : never;

@@ -1,3 +1,7 @@
+/**
+ * Listener adapter that provides derived and read-only signal operations.
+ * @module
+ */
 import { type CollectionCache, ValueCache } from './caches.ts';
 import type {
     Accumulator,
@@ -23,9 +27,11 @@ function makeFreshListener<T>(listener: Listener<T>): FreshListener<T> {
     }) as any;
 }
 
+/** A readable signal wrapper that supports listeners, tags, and signal transformations. */
 export class ExtendedSignal<T> implements ReadableSignal<T> {
     private readonly _tagMap = new TagMap<T>();
 
+    /** Combine signals into one readable signal that forwards every payload. */
     public static merge<U>(...signals: BaseSignal<U>[]): ReadableSignal<U> {
         const listeners = new Map<any, any>();
         return new ExtendedSignal({
@@ -42,6 +48,7 @@ export class ExtendedSignal<T> implements ReadableSignal<T> {
         });
     }
 
+    /** Resolve with the next payload, or reject with the next rejection-signal payload. */
     public static promisify<U>(
         resolveSignal: BaseSignal<U>,
         rejectSignal?: BaseSignal<any>,
@@ -71,16 +78,19 @@ export class ExtendedSignal<T> implements ReadableSignal<T> {
         });
     }
 
+    /** Wrap a base signal and optionally share hooks for clearing derived signals. */
     constructor(
         private readonly _baseSignal: BaseSignal<T>,
         protected readonly _parentPostClearHooks: Function[] = [],
     ) {}
 
+    /** Register a listener and associate optional tags for later removal. */
     public add(listener: Listener<T>, ...tags: any[]): void {
         this._tagMap.setListeners(listener, ...tags);
         this._baseSignal.add(listener);
     }
 
+    /** Remove a listener, or remove every listener associated with a tag. */
     public remove(listenerOrTag: any) {
         this._tagMap.getListeners(listenerOrTag).forEach((taggedListener) => {
             this._baseSignal.remove(taggedListener);
@@ -90,6 +100,7 @@ export class ExtendedSignal<T> implements ReadableSignal<T> {
         this._tagMap.clearListener(listenerOrTag);
     }
 
+    /** Create or attach a writable child signal that forwards this signal's payloads. */
     public chain(
         child?: ReadableSignal<any> & WritableSignal<any>,
     ): ReadableSignal<T> & WritableSignal<T> {
@@ -98,6 +109,7 @@ export class ExtendedSignal<T> implements ReadableSignal<T> {
         return newChild;
     }
 
+    /** Register a listener that removes itself after its first payload. */
     public addOnce(listener: Listener<T>, ...tags: any[]): void {
         // to match the set behavior of add, only add the listener if the listener is not already
         // registered, don't add the same listener twice
@@ -113,12 +125,26 @@ export class ExtendedSignal<T> implements ReadableSignal<T> {
         this._baseSignal.add(oneTimeListener);
     }
 
+    /** Register a listener that skips any cached payload replay. */
     public addFresh(listener: Listener<T>, ...tags: any[]): void {
         const freshListener = makeFreshListener((payload: T) => listener(payload));
         this._tagMap.setListeners(freshListener, ...tags, listener);
         this._baseSignal.add(freshListener, listener);
     }
 
+    /**
+     * Create a signal that forwards only payloads accepted by the predicate.
+     *
+     * @example
+     * ```ts
+     * import { Signal } from '@hoodie/signals';
+     *
+     * const temperature = new Signal<number>();
+     * const warm = temperature.filter((value) => value >= 20);
+     * warm.add(console.log);
+     * temperature.dispatch(21);
+     * ```
+     */
     public filter<U extends T>(filter: (payload: T) => payload is U): ReadableSignal<U>;
     public filter(filter: (payload: T) => boolean): ReadableSignal<T>;
     public filter(filter: (payload: T) => boolean): ReadableSignal<T> {
@@ -133,6 +159,19 @@ export class ExtendedSignal<T> implements ReadableSignal<T> {
         });
     }
 
+    /**
+     * Create a signal that forwards each payload after transforming it.
+     *
+     * @example
+     * ```ts
+     * import { Signal } from '@hoodie/signals';
+     *
+     * const numbers = new Signal<number>();
+     * const doubled = numbers.map((value) => value * 2);
+     * doubled.add(console.log);
+     * numbers.dispatch(3);
+     * ```
+     */
     public map<U>(transform: (payload: T) => U): ReadableSignal<U> {
         return convertedListenerSignal({
             baseSignal: this._baseSignal,
@@ -141,16 +180,21 @@ export class ExtendedSignal<T> implements ReadableSignal<T> {
         });
     }
 
-    public merge<U, C extends Cache<unknown>>(...s: CachedSignal<U, C>[]): CachedSignal<T | U, C>;
+    /** Combine this signal with others, forwarding payloads from each. */
+    public merge<U, C extends Cache<unknown>>(
+        ...signals: CachedSignal<U, C>[]
+    ): CachedSignal<T | U, C>;
     public merge<U>(...signals: ReadableSignal<U>[]): ReadableSignal<T | U>;
     public merge<U>(...signals: ReadableSignal<U>[]): ReadableSignal<T | U> {
         return ExtendedSignal.merge<T | U>(this._baseSignal, ...signals);
     }
 
+    /** Resolve with the next payload, or reject when the optional signal dispatches. */
     public promisify(rejectSignal?: ReadableSignal<any>): Promise<T> {
         return ExtendedSignal.promisify(this._baseSignal, rejectSignal);
     }
 
+    /** Return a readable view that cannot be dispatched through. */
     public readOnly(): ReadableSignal<T> {
         return convertedListenerSignal({
             baseSignal: this._baseSignal,
@@ -159,6 +203,7 @@ export class ExtendedSignal<T> implements ReadableSignal<T> {
         });
     }
 
+    /** Accumulate payloads and forward the updated value after each dispatch. */
     public reduce<U>(accumulator: Accumulator<T, U>, initialValue: U): ReadableSignal<U> {
         return convertedListenerSignal({
             baseSignal: this._baseSignal,
@@ -174,6 +219,7 @@ export class ExtendedSignal<T> implements ReadableSignal<T> {
         });
     }
 
+    /** Observe each payload before forwarding it unchanged. */
     public peek(peekaboo: (payload: T) => void): ReadableSignal<T> {
         return convertedListenerSignal({
             baseSignal: this._baseSignal,
@@ -186,7 +232,18 @@ export class ExtendedSignal<T> implements ReadableSignal<T> {
     }
 
     /**
-     * cached Signals clear will not dispatch cached payloads after being cleared
+     * Create a cached view that replays stored payloads to new listeners.
+     * The cache is cleared when the owning writable signal is cleared.
+     *
+     * @example
+     * ```ts
+     * import { Signal } from '@hoodie/signals';
+     *
+     * const source = new Signal<string>();
+     * const cached = source.cache();
+     * source.dispatch('ready');
+     * cached.add(console.log); // Immediately receives 'ready'.
+     * ```
      */
     public cache(cache: ValueCache<T>): CachedSignal<T, ValueCache<T>>;
     public cache(cache: CollectionCache<T>): CachedSignal<T, CollectionCache<T>>;
