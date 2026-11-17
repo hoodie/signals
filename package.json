@@ -12,7 +12,6 @@
     "devDependencies": {
         "@tsconfig/strictest": "2.0.3",
         "@types/node": "20.11.24",
-
         "typescript": "^7.0.2"
     },
     "scripts": {
